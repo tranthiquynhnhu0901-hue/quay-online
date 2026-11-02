@@ -1,0 +1,10 @@
+const test=require('node:test');const assert=require('node:assert/strict');const {normalize}=require('./normalize');
+test('nested user from connector 2.x and avatar',()=>{const m=normalize('member',{msgId:'abc1',user:{uniqueId:'ca_phe_123',profilePictureUrl:'https://example.com/avatar.jpg'}});assert.equal(m.name,'ca_phe_123');assert.equal(m.avatar,'https://example.com/avatar.jpg');assert.equal(m.source,'tiktok');assert.equal(m.type,'viewer')});
+test('likes counted as grouped count',()=>{assert.equal(normalize('like',{user:{uniqueId:'abc'},likeCount:15}).count,15);assert.equal(normalize('like',{likeCount:0}),null)});
+test('follow not miscounted as share',()=>{assert.equal(normalize('social',{uniqueId:'person',displayType:'follow'}).type,'follow');assert.equal(normalize('social',{uniqueId:'person',displayType:'share'}).type,'share');assert.equal(normalize('social',{}),null)});
+test('gift streak triggers only final aggregated event',()=>{const data={user:{uniqueId:'fan'},giftType:1,giftName:'Rose',repeatCount:9,diamondCount:1};assert.equal(normalize('gift',{...data,repeatEnd:false}),null);const m=normalize('gift',{...data,repeatEnd:true});assert.equal(m.count,9);assert.equal(m.giftName,'Rose');assert.equal(m.tier,1)});
+test('gift tiers based on quantity of received gift',()=>{const d=normalize('gift',{uniqueId:'fan',giftType:0,repeatCount:100,diamondCount:1});assert.equal(d.tier,3);assert.equal(d.count,100)});
+test('ignore events without identifiable user',()=>{assert.equal(normalize('member',{}),null)});
+test('handles older flattened event format',()=>{const d=normalize('chat',{uniqueId:'old_user',comment:'!dance'});assert.equal(d.name,'old_user');assert.equal(d.comment,'!dance')});
+
+test('viewerKey is attached to real gift sender identity',()=>{const d=normalize('gift',{user:{uniqueId:'fan_42',nickname:'Fan',profilePictureUrl:'https://example.com/42.jpg'},giftType:0,giftName:'Rose',diamondCount:1});assert.equal(d.viewerKey,'fan_42');assert.equal(d.name,'fan_42');assert.equal(d.avatar,'https://example.com/42.jpg')});

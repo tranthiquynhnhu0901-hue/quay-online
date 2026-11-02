@@ -1,0 +1,53 @@
+name: NEON PARTY LIVE - GitHub Pages
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: neon-party-pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate source code
+        run: |
+          node --check app.js
+          node --check server/server.js
+          node --test server/normalize.test.js
+          node tools/verify-upload.js
+      - name: Assemble public website
+        env:
+          NEON_BACKEND_URL: ${{ vars.NEON_BACKEND_URL }}
+        run: |
+          mkdir -p public/assets
+          cp index.html app.js styles.css .nojekyll public/
+          cp assets/neon_live_mix.m4a assets/party_123_zo.mp3 assets/beer_open.mp3 assets/beer_pour.mp3 public/assets/
+          python3 - <<'PYCONFIG'
+          import os,json,pathlib
+          backend=os.getenv('NEON_BACKEND_URL','').strip().rstrip('/')
+          if backend and not backend.startswith('https://'):
+              raise SystemExit('NEON_BACKEND_URL must use HTTPS or be empty')
+          pathlib.Path('public/config.js').write_text('window.NEON_CONFIG = { BACKEND_URL: '+json.dumps(backend)+' };\n',encoding='utf-8')
+          print('Backend:', backend or '(empty: DEMO only)')
+          PYCONFIG
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
