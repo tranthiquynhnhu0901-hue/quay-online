@@ -1,3 +1,9 @@
+# NEON PARTY LIVE v2.6.2 — Audio Mixer Repair
+
+Giữ nguyên sân khấu, camera, nhân vật và gameplay bản v2.6.1. Đã bổ sung đầy đủ âm thanh và bảng kiểm tra riêng cho nhạc DJ, MC, hô tập thể, khui bia, rót ly, cụng ly, phục vụ bàn, quà tặng, pháo hoa, đám đông.
+
+**Bắt đầu:** xem `SUA_TOAN_BO_AM_THANH.md`. Backend TikTok LIVE thật cần cấu hình riêng và chưa được xác minh với phiên LIVE công khai.
+
 # NEON PARTY LIVE v2.6 — GitHub Ready Lite
 
 **Giữ nguyên game UI/UX từ v2.5**, gồm sân khấu đứng 9:16, nàng tiên cá DJ, LUNA/KAI, camera đa góc, game nhân vật, quầy bar, bàn nhậu ảo, phục vụ tự động, các đợt 1–2–3 Zô và âm thanh, MC tên người xem, bình luận và hiệu ứng quà tặng 3 giây.
