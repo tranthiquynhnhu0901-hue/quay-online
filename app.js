@@ -18,19 +18,105 @@ const audio=$('bgMusic');
 const partyAudio=$('partyChant');
 const beerOpenAudio=$('beerOpenAudio'),beerPourAudio=$('beerPourAudio');
 let beerSoundEnabled=true;
+// v2.6.2: independent AUDIO ENGINE. Effect playback is never tied to DJ music loading.
+const fxUrls={gift:'assets/fx_gift.mp3',glass:'assets/fx_glass.mp3',service:'assets/fx_service.mp3',fireworks:'assets/fx_fireworks.mp3',crowd:'assets/fx_crowd.mp3',ui:'assets/fx_ui.mp3'};
+const fxNames={gift:'Quà tặng',glass:'Cụng ly',service:'Phục vụ bàn',fireworks:'Pháo hoa',crowd:'Không khí đám đông',ui:'Nút bấm'};
+const extraFx={};
+for(const [k,src] of Object.entries(fxUrls)){const a=new Audio(new URL(src,document.baseURI).href);a.preload='auto';a.playsInline=true;extraFx[k]=a}
+let lastFxAlert=0;
+function activateSoundSystem(){
+ soundActivated=true;
+ try{audioContext=audioContext||new(window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended'){const r=audioContext.resume();if(r?.catch)r.catch(()=>{})}}catch{}
+ updatePartyAudioVolume();
+}
+function fxLevel(){return !partySoundEnabled?0:partySoundVolume}
+function playMediaClip(clip,label='',vol=1){
+ if(!clip||!soundActivated||!partySoundEnabled)return false;
+ try{
+  if(clip.error){clip.load()}
+  clip.pause();clip.currentTime=0;
+  clip.volume=Math.min(1,Math.max(0,fxLevel()*vol));
+  const promise=clip.play();
+  if(promise?.catch)promise.catch(e=>{
+   console.warn('NEON SFX failed:',label,clip.currentSrc,e?.name,e?.message);
+   if(Date.now()-lastFxAlert>9000){lastFxAlert=Date.now();toast('⚠ Âm thanh '+label+' chưa phát. Mở ⚙ → Kiểm tra toàn bộ âm thanh.');}
+  });
+  return true;
+ }catch(err){console.warn('NEON SFX:',label,err);return false;}
+}
+function playAssetSound(name,vol=1){return playMediaClip(extraFx[name],fxNames[name]||name,vol)}
+// Ensure browsers receive a user gesture to unlock all bundled clips (especially mobile).
+function unlockSoundClips(){
+ activateSoundSystem();
+ const clips=[partyAudio,beerOpenAudio,beerPourAudio,...Object.values(extraFx)].filter(Boolean);
+ for(const a of clips){
+  try{a.muted=true;const result=a.play();if(result?.then)result.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false});else{a.pause();a.currentTime=0;a.muted=false}}catch{a.muted=false}
+ }
+}
 function playBeerFx(clip){
- if(!soundActivated||muted||!partySoundEnabled||!beerSoundEnabled||!clip)return;
- try{clip.pause();clip.currentTime=0;clip.volume=Math.max(0,Math.min(1,partySoundVolume*volume*1.28));const p=clip.play();if(p?.catch)p.catch(()=>{});}catch{}
+ if(!beerSoundEnabled)return;
+ playMediaClip(clip,clip===beerOpenAudio?'Khui bia':'Rót ly',1);
 }
 
 let partySoundVolume=.92,partySoundEnabled=true,partyAudioPlaying=false;
 try {const v=localStorage.getItem('neon_party_sfx_volume'),en=localStorage.getItem('neon_party_sfx_enabled');if(v!==null&&Number.isFinite(+v))partySoundVolume=Math.max(0,Math.min(1,+v));if(en!==null)partySoundEnabled=en==='true';}catch{}
-function updatePartyAudioVolume(){if(partyAudio)partyAudio.volume=muted||!partySoundEnabled?0:Math.max(.25,volume)*partySoundVolume;}
+function updatePartyAudioVolume(){if(partyAudio)partyAudio.volume=fxLevel();for(const a of Object.values(extraFx))a.volume=fxLevel();}
 function savePartySfx(){try{localStorage.setItem('neon_party_sfx_volume',String(partySoundVolume));localStorage.setItem('neon_party_sfx_enabled',String(partySoundEnabled))}catch{}updatePartyAudioVolume();}
-function playPartyChant(){if(!partyAudio||!soundActivated||!partySoundEnabled||muted)return;
- try{partyAudio.pause();partyAudio.currentTime=0;updatePartyAudioVolume();partyAudioPlaying=true;applyMusicVolume();const result=partyAudio.play();if(result&&result.catch)result.catch(err=>{partyAudioPlaying=false;applyMusicVolume();console.info('Party sound blocked:',err.message);});}catch(err){partyAudioPlaying=false;applyMusicVolume();}}
+function playPartyChant(){if(!partyAudio||!soundActivated||!partySoundEnabled)return;
+ partyAudioPlaying=true;applyMusicVolume();
+ try{
+  partyAudio.pause();partyAudio.currentTime=0;updatePartyAudioVolume();
+  const result=partyAudio.play();
+  if(result?.catch)result.catch(err=>{partyAudioPlaying=false;applyMusicVolume();console.warn('Party sound failed:',err);if(Date.now()-lastFxAlert>9000){lastFxAlert=Date.now();toast('⚠ Tiếng hô tập thể chưa phát. Kiểm tra toàn bộ âm thanh trong ⚙.')}});
+ }catch(err){partyAudioPlaying=false;applyMusicVolume();console.warn('Party chant:',err)}
+}
 if(partyAudio){partyAudio.addEventListener('ended',()=>{partyAudioPlaying=false;applyMusicVolume()});partyAudio.addEventListener('pause',()=>{if(partyAudio.ended||!cheersEvent){partyAudioPlaying=false;applyMusicVolume()}})}
-function partySoundSettings(){showModal('Âm thanh cả phòng','🥂 PARTY SOUND MIXER',`<p class="modal-note">Đoạn hô tập thể được đóng gói sẵn với nhiều lớp giọng tổng hợp tiếng Việt, tiếng cụng ly, tiếng đám đông và pháo hoa. Không cần tải mạng hoặc phụ thuộc giọng đọc trên điện thoại.</p><div class="settings-line"><span>🎉 Bật tiếng đại tiệc</span><input id="partyFxEnabled" type="checkbox" ${partySoundEnabled?'checked':''}></div><div class="settings-line"><span>🔊 Âm lượng tiếng hô, pháo hoa</span><input id="partyFxVolume" type="range" min="0" max="100" value="${Math.round(partySoundVolume*100)}"></div><button class="primary-btn" id="partyFxPreview">▶ Thử cả phòng hô 1, 2, 3, Zô!</button><p class="modal-note">Nhạc DJ tự giảm trong lúc cả phòng hô rồi trở lại bình thường. Lưu ý: để có âm thanh trong OBS, cần bật thu âm của nguồn trình duyệt.</p>`,()=>{$('partyFxEnabled').onchange=e=>{partySoundEnabled=e.target.checked;savePartySfx()};$('partyFxVolume').oninput=e=>{partySoundVolume=Number(e.target.value)/100;savePartySfx()};$('partyFxPreview').onclick=()=>{if(!soundActivated){soundActivated=true;try{audioContext=audioContext||new(window.AudioContext||window.webkitAudioContext)();audioContext.resume()}catch{}}closeModal();startRoomCheers('Thử âm thanh',true)}})}
+function partySoundSettings(){
+ showModal('Trung tâm âm thanh','🔊 KIỂM TRA TOÀN BỘ ÂM THANH',
+ `<p class="modal-note">Nhạc DJ, lời MC và hiệu ứng được điều khiển riêng. Khi nhạc DJ bị thiếu, những tiếng khui bia, rót ly, cụng ly, pháo hoa, quà tặng và hô tập thể vẫn có thể hoạt động.</p>
+ <div class="settings-line"><span>🎉 Bật toàn bộ hiệu ứng</span><input id="partyFxEnabled" type="checkbox" ${partySoundEnabled?'checked':''}></div>
+ <div class="settings-line"><span>🔊 Âm lượng hiệu ứng riêng</span><input id="partyFxVolume" type="range" min="0" max="100" value="${Math.round(partySoundVolume*100)}"></div>
+ <div class="audio-check-grid">
+ <button class="secondary-btn audio-preview" data-preview="dj">♫ Thử nhạc DJ</button>
+ <button class="secondary-btn audio-preview" data-preview="party">📣 Hô 1–2–3 Zô!</button>
+ <button class="secondary-btn audio-preview" data-preview="open">🍺 Khui bia</button>
+ <button class="secondary-btn audio-preview" data-preview="pour">🍻 Rót ly</button>
+ <button class="secondary-btn audio-preview" data-preview="gift">🎁 Quà tặng</button>
+ <button class="secondary-btn audio-preview" data-preview="glass">🥂 Cụng ly</button>
+ <button class="secondary-btn audio-preview" data-preview="service">🛎️ Phục vụ</button>
+ <button class="secondary-btn audio-preview" data-preview="fireworks">🎆 Pháo hoa</button>
+ <button class="secondary-btn audio-preview" data-preview="crowd">👏 Đám đông</button>
+ <button class="secondary-btn audio-preview" data-preview="mc">🎙 MC đọc tên</button>
+ </div>
+ <button class="primary-btn" id="audioCheckFiles" type="button">🔎 Kiểm tra đủ 10 nguồn âm thanh</button>
+ <div id="allAudioResult" class="audio-results" aria-live="polite">Nhấn từng nút để nghe thử. Nếu không phát, kiểm tra file còn tồn tại trên GitHub Pages.</div>
+ <p class="modal-note">Chrome cần bạn bấm “Vào quán & Bật âm thanh” một lần. Khi phát qua OBS: Browser Source → Control audio via OBS và Interact nếu cần. Giọng MC tiếng Việt phụ thuộc giọng cài trên máy.</p>`,()=>{
+  $('partyFxEnabled').onchange=e=>{partySoundEnabled=e.target.checked;savePartySfx()};
+  $('partyFxVolume').oninput=e=>{partySoundVolume=Number(e.target.value)/100;savePartySfx()};
+  const status=$('allAudioResult');
+  const say=t=>{status.textContent=t};
+  document.querySelectorAll('.audio-preview').forEach(b=>b.addEventListener('click',()=>{
+   activateSoundSystem();partySoundEnabled=true;savePartySfx();const k=b.dataset.preview;
+   if(k==='dj'){muted=false;startAudio();say('Đang thử phát nhạc nền. Nếu không nghe thấy, chọn 🔎 để xem tệp có thiếu không.');}
+   else if(k==='mc'){const person=self||{id:'sample',name:'Minh Anh'};mcReady=true;mcEnabled=true;mcNames.delete('audio-preview');welcomePerson({...person,id:'audio-preview',viewerKey:'audio-preview',name:'Minh Anh'},true);scheduleWelcome();say('Đã gửi câu chào “Xin chào Minh Anh” cho giọng đọc của trình duyệt.');}
+   else if(k==='party'){playPartyChant();say('Đang thử đoạn tiếng hô tập thể.');}
+   else if(k==='open'){playBeerFx(beerOpenAudio);say('Đang thử tiếng khui bia.');}
+   else if(k==='pour'){playBeerFx(beerPourAudio);say('Đang thử tiếng rót ly.');}
+   else{playAssetSound(k);say('Đang thử hiệu ứng: '+(fxNames[k]||k));}
+  }));
+  $('audioCheckFiles').onclick=async()=>{
+   status.textContent='Đang kiểm tra đường dẫn file…';
+   const items=[['DJ Mix',audio],['Hô 1–2–3 Zô',partyAudio],['Khui bia',beerOpenAudio],['Rót ly',beerPourAudio],...Object.entries(extraFx).map(([k,a])=>[fxNames[k],a])];
+   const results=await Promise.all(items.map(async([name,a])=>{
+    if(!a)return {name,ok:false,desc:'Thiếu phần tử âm thanh'};
+    const url=new URL(a.getAttribute('src')||a.src,document.baseURI).href;
+    try{const res=await fetch(url,{method:'HEAD',cache:'no-store'});return {name,ok:res.ok&&!((res.headers.get('content-type')||'').includes('text/html')),desc:res.ok?'HTTP '+res.status:'HTTP '+res.status,href:url}}
+    catch(e){return {name,ok:false,desc:location.protocol==='file:'?'Không kiểm tra HEAD trên file:// (hãy thử nghe)':'Lỗi tải '+e.message,href:url}}
+   }));
+   status.replaceChildren(...results.map(r=>{const el=document.createElement('div');el.className=r.ok?'audio-ok':'audio-missing';el.textContent=(r.ok?'✅ ':'⚠️ ')+r.name+' — '+r.desc;return el}));
+  };
+ });
+}
 
 // Vietnamese browser text-to-speech, opt-in by entering with sound or by pressing Test.
 // Uses local voices; may be unavailable on some browsers / OBS installations.
@@ -236,7 +322,7 @@ function updateWaiters(dt,t){
    if(d<14||w.progress>=1){w.state='delivering';w.arrivedAt=t;w.progress=1;
     if(c){setAction(c,w.job.emoji==='🍕'||['🍰','🍣','🍔','🍱','🍟'].includes(w.job.emoji)?'eat':'cheers',5200,w.job.emoji);
      chatBubble(c,'Cảm ơn '+w.name.split(' ')[0]+'! '+w.job.emoji,3500);
-     puff(c.x,c.y-55,'spark',9);soundEffect('cheers');
+     puff(c.x,c.y-55,'spark',9);playAssetSound('service',.58);soundEffect('cheers');
     }
     chatBubble(w,'Mời bạn thưởng thức! '+w.prop,2600);
    }
@@ -292,7 +378,7 @@ function updateBeerPop(t){
  if(!beerPopEvent)return;
  const elapsed=t-beerPopEvent.start;
  if(elapsed>700&&beerPopEvent.phase===0){beerPopEvent.phase=1;playBeerFx(beerPourAudio);}
- if(elapsed>3400&&beerPopEvent.phase===1){beerPopEvent.phase=2;soundEffect('cheers');}
+ if(elapsed>3400&&beerPopEvent.phase===1){beerPopEvent.phase=2;playAssetSound('glass');soundEffect('cheers');}
  if(elapsed>5400)beerPopEvent=null;
 }
 function drawAmberMug(x,y,s=1,raised=false){
@@ -358,7 +444,7 @@ function updateRoomCheers(t){if(!cheersEvent)return;
  const box=$('cheersCountdown');
  if(step!==e.step){e.step=step;
   if(step>=0&&step<=2){box.textContent=['1','2','3'][step];box.hidden=false;}
-  if(step===3){box.textContent='ZÔÔÔ! 🥂';box.hidden=false;
+  if(step===3){box.textContent='ZÔÔÔ! 🥂';box.hidden=false;playAssetSound('fireworks',.52);
    for(const c of chars.slice(0,20)){puff(c.x,c.y-68,'spark',quality==='low'?5:11)}
    for(let i=0;i<8;i++)puff(rand(260,1120),rand(220,610),'spark',quality==='low'?7:20);
    activePartyUntil=t+3300;
@@ -426,9 +512,82 @@ function shakeWorld(){canvas.classList.add('shake');setTimeout(()=>canvas.classL
 function safeText(s){return String(s||'').slice(0,100)}
 function feed(name,body,emoji='✦'){const row=document.createElement('div');row.className='feed-item';const av=document.createElement('div');av.className='feed-avatar';av.textContent=emoji;const det=document.createElement('div');det.className='feed-detail';const b=document.createElement('b');b.textContent=safeText(name);det.appendChild(b);det.appendChild(document.createTextNode(' '+safeText(body)));const t=document.createElement('small');t.textContent='Vừa xong · '+(eventScope==='tiktok'?'TIKTOK LIVE':'DEMO');det.appendChild(t);row.append(av,det);$('eventFeed').prepend(row);while($('eventFeed').children.length>7)$('eventFeed').lastChild.remove();}
 function toast(text){const el=document.createElement('div');el.className='toast';el.textContent=text;$('toastArea').prepend(el);setTimeout(()=>{el.style.opacity=0;setTimeout(()=>el.remove(),250)},4300)}
-function soundEffect(type='spark'){if(!soundActivated||muted||!audioContext)return;try{if(audioContext.state==='suspended')audioContext.resume();const t=audioContext.currentTime;if(type==='cheers'){for(const [f,amp] of [[1220,.025],[1830,.012],[2535,.006]]){const o=audioContext.createOscillator(),g=audioContext.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(Math.max(.0001,amp*partySoundVolume),t);g.gain.exponentialRampToValueAtTime(.0001,t+.45);o.connect(g);g.connect(audioGain||audioContext.destination);o.start(t);o.stop(t+.48)}return;}let notes=type==='gift'?[659,880,1174,1318]:type==='cheers'?[880,1174]:type==='dance'?[110,147,175,220]:type==='share'?[440,554,659]:[660,784];notes.forEach((f,i)=>{let osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type=type==='dance'?'triangle':'sine';osc.frequency.setValueAtTime(f,t+i*.09);gain.gain.setValueAtTime(.0001,t+i*.09);gain.gain.exponentialRampToValueAtTime((type==='dance'?.055:.04)*volume,t+i*.09+.015);gain.gain.exponentialRampToValueAtTime(.0001,t+i*.09+.2);osc.connect(gain);gain.connect(audioGain||audioContext.destination);osc.start(t+i*.09);osc.stop(t+i*.09+.22)})}catch(e){console.debug('SFX:',e.message)}}
-function startAudio(){soundActivated=true;updatePartyAudioVolume();mcReady=true;if(welcomeQueue.length&&!mcSpeaking)scheduleWelcome();try{audioContext=audioContext||new(window.AudioContext||window.webkitAudioContext)();audioGain=audioGain||audioContext.createGain();audioGain.gain.value=1;if(!analyser){analyser=audioContext.createAnalyser();analyser.fftSize=256;freqData=new Uint8Array(analyser.frequencyBinCount);const src=audioContext.createMediaElementSource(audio);src.connect(analyser);analyser.connect(audioGain);audioGain.connect(audioContext.destination)}audioContext.resume();}catch(e){console.info('No Web Audio:',e.message)}applyMusicVolume();return audio.play().then(()=>{isPlaying=true;syncAudioUI()}).catch(()=>{isPlaying=false;syncAudioUI();toast('Trình duyệt chưa cho phát nhạc. Hãy nhấn nút ♫ để bật.')})}
-function syncAudioUI(){$('muteBtn').textContent=muted||!isPlaying?'🔇':'♫';$('mobileMute').textContent=muted||!isPlaying?'🔇':'🔊';$('mobileVolume').value=Math.round(volume*100);$('liveVolSlider').value=Math.round(volume*100);$('liveAudioText').textContent=muted||!isPlaying?'Bật nhạc':'Tắt nhạc';$('musicText').textContent=isPlaying?'♪ Đang phát · DJ Mix 2025':'♫ Chạm ♫ để phát nhạc';$('volLabel').textContent=Math.round(volume*100)+'%';$('volSlider').value=Math.round(volume*100);$('entryVol').value=Math.round(volume*100);$('entryVolText').textContent=Math.round(volume*100)+'%'}
+function soundEffect(type='spark'){if(!soundActivated||!partySoundEnabled)return;if(type==='gift'||type==='share')playAssetSound('gift',.85);if(!audioContext)return;try{if(audioContext.state==='suspended')audioContext.resume();const t=audioContext.currentTime;if(type==='cheers'){for(const [f,amp] of [[1220,.025],[1830,.012],[2535,.006]]){const o=audioContext.createOscillator(),g=audioContext.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(Math.max(.0001,amp*partySoundVolume),t);g.gain.exponentialRampToValueAtTime(.0001,t+.45);o.connect(g);g.connect(audioContext.destination);o.start(t);o.stop(t+.48)}return;}let notes=type==='gift'?[659,880,1174,1318]:type==='cheers'?[880,1174]:type==='dance'?[110,147,175,220]:type==='share'?[440,554,659]:[660,784];notes.forEach((f,i)=>{let osc=audioContext.createOscillator(),gain=audioContext.createGain();osc.type=type==='dance'?'triangle':'sine';osc.frequency.setValueAtTime(f,t+i*.09);gain.gain.setValueAtTime(.0001,t+i*.09);gain.gain.exponentialRampToValueAtTime((type==='dance'?.045:.028)*fxLevel(),t+i*.09+.015);gain.gain.exponentialRampToValueAtTime(.0001,t+i*.09+.2);osc.connect(gain);gain.connect(audioContext.destination);osc.start(t+i*.09);osc.stop(t+i*.09+.22)})}catch(e){console.debug('SFX:',e.message)}}
+// Audio diagnostics: never misreport a 404/unsupported source as autoplay permission failure.
+let musicPlayPromise=null, musicErrorDetail='', lastMusicWarningAt=0, temporaryMusicUrl=null;
+function musicAssetURL(){return new URL(audio.getAttribute('src')||'assets/neon_live_mix.m4a',document.baseURI).href}
+function showMusicWarning(message){
+ musicErrorDetail=message;
+ const warning=$('musicWarning');if(warning){warning.hidden=false;$('musicWarningText').textContent=message}
+ const text=$('musicText');if(text)text.textContent='⚠ Nhạc chưa phát · Xem lỗi';
+ if(Date.now()-lastMusicWarningAt>7000){toast(message);lastMusicWarningAt=Date.now()}
+}
+function clearMusicWarning(){musicErrorDetail='';const w=$('musicWarning');if(w)w.hidden=true}
+async function checkMusicAsset(){
+ const target=musicAssetURL();
+ if(temporaryMusicUrl)return {ok:true,message:'Đang dùng nhạc chọn từ máy tính.'};
+ try{
+  const r=await fetch(target,{method:'HEAD',cache:'no-store'});
+  if(r.status===404)return {ok:false,message:'Không tìm thấy nhạc trên GitHub Pages (404). Hãy tải assets/neon_live_mix.m4a lên đúng thư mục.'};
+  if(!r.ok)return {ok:false,message:`Không tải được file nhạc (HTTP ${r.status}). Kiểm tra GitHub Pages / GitHub Actions.`};
+  const mime=r.headers.get('content-type')||'';
+  if(mime.includes('text/html'))return {ok:false,message:'Đường dẫn nhạc đang trả về trang HTML thay vì file M4A. Kiểm tra assets/.'};
+  return {ok:true,message:'File nhạc phản hồi HTTP '+r.status+' ('+(mime||'không rõ định dạng')+').'};
+ }catch(err){return {ok:false,message:'Không kiểm tra được đường dẫn nhạc: '+(err?.message||'lỗi mạng')+'.'};}
+}
+async function explainMusicFailure(err){
+ const name=err?.name||'MediaError';
+ const mediaCode=audio.error?.code;
+ let message='Không thể phát nhạc ('+name+').';
+ if(name==='NotAllowedError')message='Trình duyệt chặn tự phát. Hãy nhấn Vào quán hoặc nút ▶ để cấp quyền âm thanh.';
+ else if(name==='NotSupportedError'||mediaCode===4)message='Không đọc được nguồn nhạc. Có thể file nhạc bị thiếu hoặc không được xuất bản.';
+ else if(mediaCode===2)message='Tải nhạc thất bại do mạng hoặc máy chủ.';
+ else if(mediaCode===3)message='Trình duyệt không giải mã được file nhạc.';
+ const fileCheck=await checkMusicAsset();
+ if(!fileCheck.ok)message=fileCheck.message;
+ console.warn('NEON audio failure:',{name,mediaCode,src:audio.currentSrc,check:fileCheck.message,error:err?.message});
+ showMusicWarning(message);
+}
+function musicTroubleshoot(){
+ const href=musicAssetURL();
+ const safeHref=href.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+ showModal('Khắc phục nhạc DJ','🎧 KIỂM TRA ÂM THANH',`
+ <p class="modal-note">${musicErrorDetail||'Nếu nhấn phát nhưng không nghe được, hãy kiểm tra file nhạc được GitHub Pages phục vụ.'}</p>
+ <div class="settings-line"><span>🎵 File nhạc trên website</span><a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="color:#8beaff">Mở trực tiếp ↗</a></div>
+ <div class="settings-line"><span>🔍 Kiểm tra đường dẫn</span><button type="button" class="secondary-btn" id="musicTestURL">Kiểm tra ngay</button></div>
+ <p id="musicTestResult" class="modal-note">Nếu liên kết báo 404, hãy tải đúng file <code>assets/neon_live_mix.m4a</code> lên repository và xuất bản lại Pages.</p>
+ <div class="settings-line"><span>📂 Chọn nhạc trên máy để thử LIVE</span><input type="file" id="musicLocalFile" accept="audio/*" style="max-width:185px;font-size:11px"></div>
+ <p class="modal-note">Nhạc chọn từ máy chỉ phát trên trình duyệt hiện tại, KHÔNG thay thế file nhạc của website công khai. Để phát cho người xem bằng OBS, hãy bật nguồn âm thanh tương ứng.</p>
+ <button type="button" class="primary-btn" id="musicTryAgain">▶ Thử phát lại</button>
+ `,()=>{
+ $('musicTestURL').onclick=async()=>{$('musicTestResult').textContent='Đang kiểm tra…';const result=await checkMusicAsset();$('musicTestResult').textContent=result.message};
+ $('musicTryAgain').onclick=()=>{closeModal();muted=false;startAudio()};
+ $('musicLocalFile').onchange=e=>{const file=e.target.files?.[0];if(!file)return;
+  if(temporaryMusicUrl)URL.revokeObjectURL(temporaryMusicUrl);
+  temporaryMusicUrl=URL.createObjectURL(file);audio.pause();audio.src=temporaryMusicUrl;audio.load();closeModal();muted=false;startAudio();};
+ });
+}
+function startAudio(){
+ if(musicPlayPromise)return musicPlayPromise;
+ activateSoundSystem();mcReady=true;
+ if(welcomeQueue.length&&!mcSpeaking)scheduleWelcome();
+ try{
+  audioContext=audioContext||new(window.AudioContext||window.webkitAudioContext)();
+  audioGain=audioGain||audioContext.createGain();audioGain.gain.value=1;
+  if(!analyser){analyser=audioContext.createAnalyser();analyser.fftSize=256;freqData=new Uint8Array(analyser.frequencyBinCount);
+   const src=audioContext.createMediaElementSource(audio);src.connect(analyser);analyser.connect(audioGain);audioGain.connect(audioContext.destination)}
+  const resume=audioContext.resume();if(resume?.catch)resume.catch(e=>console.warn('AudioContext resume:',e.message));
+ }catch(e){console.info('Web Audio visualizer unavailable:',e.message)}
+ applyMusicVolume();
+ if(audio.error)audio.load();
+ let attempt;
+ try{attempt=audio.play()}catch(err){attempt=Promise.reject(err)}
+ musicPlayPromise=Promise.resolve(attempt).then(()=>{isPlaying=true;clearMusicWarning();syncAudioUI();return true}).catch(async err=>{
+  isPlaying=false;syncAudioUI();await explainMusicFailure(err);return false;
+ }).finally(()=>{musicPlayPromise=null});
+ return musicPlayPromise;
+}
+function syncAudioUI(){$('muteBtn').textContent=muted||!isPlaying?'🔇':'♫';$('mobileMute').textContent=muted||!isPlaying?'🔇':'🔊';$('mobileVolume').value=Math.round(volume*100);$('liveVolSlider').value=Math.round(volume*100);$('liveAudioText').textContent=muted||!isPlaying?'Bật nhạc':'Tắt nhạc';$('musicText').textContent=isPlaying?'♪ Đang phát · DJ Mix 2025':(musicErrorDetail?'⚠ Nhạc chưa phát · Xem lỗi':'▶ Chạm để bật nhạc DJ');$('volLabel').textContent=Math.round(volume*100)+'%';$('volSlider').value=Math.round(volume*100);$('entryVol').value=Math.round(volume*100);$('entryVolText').textContent=Math.round(volume*100)+'%'}
 function setVolume(n){volume=clamp(Number(n)/100,0,1);applyMusicVolume();try{localStorage.setItem('neon_volume',volume)}catch{}syncAudioUI()}
 try{const v=Number(localStorage.getItem('neon_volume'));if(v>0&&v<=1)volume=v}catch{}
 function updateStats(){$('peopleCount').textContent=chars.length+residentDancers.length;$('roomCount').textContent=chars.length+' khách + 2 vũ công';$('totalHearts').textContent=heartCount.toLocaleString('vi-VN');$('shareCount').textContent=shareCount;$('heartProgress').style.width=(heartCount%1000/10)+'%';$('progressText').textContent=(heartCount%1000).toLocaleString('vi-VN')+' / 1.000 TIM';$('shareProgress').style.width=(shareCount%5/5*100)+'%';$('shareText').textContent=(shareCount%5)+' / 5 LƯỢT'}
@@ -476,7 +635,7 @@ function actionVote(team,c=getOwner()){
  if(djVoters.has(c.name.toLowerCase())){if(c===self)toast('Mỗi nhân vật chỉ được bình chọn 1 lần mỗi vòng DJ.');return}
  djVoters.add(c.name.toLowerCase());djVotes[team]++;c.score+=3;const col=team==='hong'?'#ff6bd4':'#55e4ff';beam(c.x,c.y-45,col,100);displayText(c.x,c.y-117,'DJ '+(team==='hong'?'HỒNG':'XANH'),col);feed(c.name,'bình chọn DJ '+(team==='hong'?'Hồng Neon':'Xanh Cyan'),'🎧');soundEffect('dance');updateDJVote();renderRank();
 }
-function actionCheers(c=getOwner()){goTo(c,'bar');setAction(c,'cheers',6000,'🍹');puff(c.x,c.y-58,'spark',12);displayText(c.x,c.y-122,'CHEERS!','#ffdf99');feed(c.name,'nâng ly chúc mừng cùng bạn bè!','🥂');soundEffect('cheers')}
+function actionCheers(c=getOwner()){goTo(c,'bar');setAction(c,'cheers',6000,'🍹');puff(c.x,c.y-58,'spark',12);displayText(c.x,c.y-122,'CHEERS!','#ffdf99');feed(c.name,'nâng ly chúc mừng cùng bạn bè!','🥂');playAssetSound('glass');soundEffect('cheers')}
 function actionDancePair(c){actionDance(c);const now=Date.now();if(lastPartner&&lastPartner.c!==c&&now-lastPartner.at<12000){const friend=lastPartner.c;target(friend,625,530);target(c,735,530);setAction(friend,'dance',10000);setAction(c,'dance',10000);beam(friend.x,friend.y-44,'#ff73ce',95);beam(c.x,c.y-44,'#66e8fa',95);feed('DANCE TOGETHER',friend.name+' & '+c.name+' đang nhảy đôi!','💃');toast('💃 '+friend.name+' × '+c.name+' – DANCE DUO!');lastPartner=null}else lastPartner={c,at:now}}
 function triggerDancerShow(focus='duo'){
   proShowFocus=focus;proShowUntil=performance.now()+15000;
@@ -492,7 +651,7 @@ function openResidentDancer(d){
     $('startDuo').onclick=()=>{closeModal();triggerDancerShow('duo')};
   });
 }
-function party(label='PARTY TIME — CẢ QUÁN BÙNG NỔ!'){activePartyUntil=performance.now()+11500;for(const c of chars){if(c===giftShot?.character)continue;if(Math.random()<.88){goTo(c,'dance');setAction(c,'dance',11000)}}for(let i=0;i<7;i++)setTimeout(()=>puff(rand(330,1010),rand(200,600),'spark',28),i*380);$('partyStatus').innerHTML='<span class="pulse-spot">✦</span><span>ĐẠI TIỆC NEON <b>PARTY MODE ON</b></span>';feed('DJ NEON',label,'🎧');toast('🔥 '+label);soundEffect('dance')}
+function party(label='PARTY TIME — CẢ QUÁN BÙNG NỔ!'){activePartyUntil=performance.now()+11500;for(const c of chars){if(c===giftShot?.character)continue;if(Math.random()<.88){goTo(c,'dance');setAction(c,'dance',11000)}}for(let i=0;i<7;i++)setTimeout(()=>puff(rand(330,1010),rand(200,600),'spark',28),i*380);$('partyStatus').innerHTML='<span class="pulse-spot">✦</span><span>ĐẠI TIỆC NEON <b>PARTY MODE ON</b></span>';feed('DJ NEON',label,'🎧');toast('🔥 '+label);playAssetSound('crowd',.65);soundEffect('dance')}
 function updateAvatar(c,url){if(!url||!/^https:\/\//i.test(url)||url.length>2048||c.avatar===url)return;c.avatar=url;let img=new Image();img.crossOrigin='anonymous';img.onload=()=>{c.img=img};img.onerror=()=>{c.img=null};img.src=url}
 function addPerson(name,avatarUrl){name=safeText(name).trim().slice(0,24);if(!name){toast('Nhập tên trước khi vào quán nhé!');return}if(chars.some(c=>c.name.toLowerCase()===name.toLowerCase())){toast('Tên này đã có mặt trong quán!');return}let c=newCharacter(name,chars.length);c.x=670;c.y=795;c.tx=675+rand(-180,180);c.ty=485+rand(-80,80);c.action='dance';c.danceStyle=Math.floor(rand(0,8));chars.push(c);if(avatarUrl)updateAvatar(c,avatarUrl);selectedId=c.id;puff(c.x,c.y-30,'spark',25);displayText(c.x,c.y-95,'CHÀO MỪNG!','#fbe2a3');feed(c.name,'vừa bước vào quán Neon Party!','👋');toast('✨ Chào mừng '+name+' đến Neon Party!');welcomePerson(c);updateStats();renderRank();return c}
 function showModal(title,eyebrow,html,setup){$('modalTitle').textContent=title;$('modalEyebrow').textContent=eyebrow;$('modalContent').innerHTML=html;$('modalBackdrop').hidden=false;if(setup)setup()}
@@ -501,7 +660,7 @@ const option=(icon,title,small,key,i)=>`<button class="menu-option" data-item="$
 function foodModal(drink){const menu=drink?menuDrinks:menuFoods;showModal(drink?'Quầy nước Neon':'Menu đồ ăn hấp dẫn',drink?'🍹 BARTENDER STATION':'🍕 PARTY FOOD CORNER','<p class="modal-note">Hãy chọn món ảo! Nhân vật sẽ di chuyển tới quầy và nhận món với hoạt ảnh riêng. Đây là trải nghiệm miễn phí trong DEMO.</p><div class="menu-grid">'+menu.map((m,i)=>option(...m,drink?'drink':'food',i)).join('')+'</div>',()=>{document.querySelectorAll('[data-item]').forEach(b=>b.addEventListener('click',()=>{actionFood(menu[Number(b.dataset.item)],getOwner(),drink);closeModal()}))})}
 function giftModal(){const items=[['💗','Trái tim Neon','Cấp 1 · Nhấp nháy dễ thương'],['🎁','Hộp quà lung linh','Cấp 2 · Mở quà'],['🍹','Bartender Show','Cấp 3 · Ánh sáng và phục vụ'],['✨','Personal Spotlight','Cấp 4 · Sân khấu rực rỡ'],['🎧','DJ Party','Cấp 5 · Vũ điệu cộng đồng'],['🎆','Ultimate Party','Cấp 6 · Bùng nổ toàn quán']];showModal('Thử hiệu ứng quà tặng','🎁 GIFT REACTION ENGINE','<p class="modal-note">Sự kiện dưới đây là <b>DEMO</b> để trải nghiệm hiệu ứng. Đây không phải giao dịch TikTok hay hệ thống mua hàng bằng Coin.</p><div class="menu-grid">'+items.map((m,i)=>option(...m,'gift',i)).join('')+'</div>',()=>{document.querySelectorAll('[data-item]').forEach(b=>b.addEventListener('click',()=>{let i=Number(b.dataset.item);actionGift(i+1,getOwner(),items[i][1]);closeModal()}))})}
 function joinModal(isEdit=false){const title=isEdit?'Đổi tên nhân vật':'Mời thêm một người bạn';showModal(title,'👋 CHÀO MỪNG BẠN ĐẾN QUÁN',`<p class="modal-note">${isEdit?'Thay tên nhân vật của bạn trong phiên DEMO.':'Tạo thêm một nhân vật hoạt hình với tên riêng, tự động bước vào quán và hòa vào buổi tiệc.'}</p><label class="form-label" for="newName">Tên hiển thị</label><input id="newName" class="form-input" maxlength="24" placeholder="Ví dụ: Bé Mèo, Kiki, Panda..." autocomplete="off"><button id="submitName" class="primary-btn">${isEdit?'LƯU TÊN':'✦ THÊM NHÂN VẬT'}</button>`,()=>{$('newName').value=isEdit?self.name:'';const submit=()=>{const name=$('newName').value.trim();if(!name)return;if(isEdit){self.name=name;selectedId='you';$('selfName').textContent=name;$('selfAvatar').textContent=[...name][0].toUpperCase();try{localStorage.setItem('neon_name',name)}catch{}toast('Đã đổi tên thành '+name);renderRank()}else addPerson(name);closeModal()};$('submitName').addEventListener('click',submit);$('newName').addEventListener('keydown',e=>{if(e.key==='Enter')submit()});$('newName').focus()})}
-function settingsModal(){showModal('Cài đặt không gian','⚙ YOUR PARTY SETTINGS',`<div class="settings-line"><span>♫ Âm lượng nhạc nền</span><input type="range" id="settingVol" min="0" max="100" value="${Math.round(volume*100)}"></div><div class="settings-line"><span>🎙 MC ảo chào khách</span><button class="secondary-btn" id="mcSettingsBtn">Cá nhân hóa lời chào</button></div><div class="settings-line"><span>🎚 Hiệu ứng đồ họa</span><select id="qualitySelect" class="form-input" style="width:160px;margin:0"><option value="auto">Tự động</option><option value="low">Tiết kiệm</option><option value="high">Cao</option></select></div><div class="settings-line"><span>⚡ Quản trị & Kết nối LIVE</span><button class="secondary-btn" id="adminButton">Mở bảng quản trị</button></div><div class="settings-line"><span>🎥 Chế độ phát OBS</span><button class="secondary-btn" id="overlayLink">Mở Overlay 9:16</button></div><div class="settings-line"><span>♬ Điều khiển nhạc</span><button class="secondary-btn" id="musicControl">${isPlaying?'Tạm dừng nhạc':'Bật nhạc'}</button></div><p class="modal-note">Nhạc đi kèm đã được nén để giảm dung lượng. Chế độ LIVE thật yêu cầu máy chủ và nguồn sự kiện TikTok hợp lệ. Khi mở HTML độc lập, các chức năng tương tác hoạt động ở chế độ DEMO.</p>`,()=>{$('mcSettingsBtn').addEventListener('click',mcSettingsModal);$('adminButton').addEventListener('click',adminModal);$('settingVol').addEventListener('input',e=>setVolume(e.target.value));$('qualitySelect').value=quality;$('qualitySelect').addEventListener('change',e=>quality=e.target.value);$('overlayLink').addEventListener('click',()=>{const url=location.href.split('?')[0]+'?overlay=1';try{window.open(url,'_blank')}catch{}toast('Đã mở liên kết OBS Overlay')});$('musicControl').addEventListener('click',()=>{toggleAudio();$('musicControl').textContent=isPlaying?'Tạm dừng nhạc':'Bật nhạc'})})}
+function settingsModal(){showModal('Cài đặt không gian','⚙ YOUR PARTY SETTINGS',`<div class="settings-line"><span>♫ Âm lượng nhạc nền</span><input type="range" id="settingVol" min="0" max="100" value="${Math.round(volume*100)}"></div><div class="settings-line"><span>🎙 MC ảo chào khách</span><button class="secondary-btn" id="mcSettingsBtn">Cá nhân hóa lời chào</button></div><div class="settings-line"><span>🔊 Tiếng khui bia, quà tặng, pháo hoa</span><button class="secondary-btn" id="allAudioSettingsBtn">Kiểm tra tất cả âm thanh</button></div><div class="settings-line"><span>🎚 Hiệu ứng đồ họa</span><select id="qualitySelect" class="form-input" style="width:160px;margin:0"><option value="auto">Tự động</option><option value="low">Tiết kiệm</option><option value="high">Cao</option></select></div><div class="settings-line"><span>⚡ Quản trị & Kết nối LIVE</span><button class="secondary-btn" id="adminButton">Mở bảng quản trị</button></div><div class="settings-line"><span>🎥 Chế độ phát OBS</span><button class="secondary-btn" id="overlayLink">Mở Overlay 9:16</button></div><div class="settings-line"><span>♬ Điều khiển nhạc</span><button class="secondary-btn" id="musicControl">${isPlaying?'Tạm dừng nhạc':'Bật nhạc'}</button></div><p class="modal-note">Nhạc đi kèm đã được nén để giảm dung lượng. Chế độ LIVE thật yêu cầu máy chủ và nguồn sự kiện TikTok hợp lệ. Khi mở HTML độc lập, các chức năng tương tác hoạt động ở chế độ DEMO.</p>`,()=>{$('mcSettingsBtn').addEventListener('click',mcSettingsModal);$('allAudioSettingsBtn').addEventListener('click',partySoundSettings);$('adminButton').addEventListener('click',adminModal);$('settingVol').addEventListener('input',e=>setVolume(e.target.value));$('qualitySelect').value=quality;$('qualitySelect').addEventListener('change',e=>quality=e.target.value);$('overlayLink').addEventListener('click',()=>{const url=location.href.split('?')[0]+'?overlay=1';try{window.open(url,'_blank')}catch{}toast('Đã mở liên kết OBS Overlay')});$('musicControl').addEventListener('click',()=>{toggleAudio();$('musicControl').textContent=isPlaying?'Tạm dừng nhạc':'Bật nhạc'})})}
 function adminModal(){
  if(!sameOriginBackend){
    const safeLink=backendBase && /^https:\/\//i.test(backendBase) ? backendBase : '';
@@ -1324,8 +1483,10 @@ $('liveInteractionsAction').addEventListener('click',()=>{closeLiveTools();openP
 $('liveGiftAction').addEventListener('click',()=>{closeLiveTools();giftModal()});
 $('liveWelcomeAction').addEventListener('click',()=>{closeLiveTools();mcSettingsModal()});$('livePartySoundAction').addEventListener('click',()=>{closeLiveTools();partySoundSettings()});
 $('liveAudioAction').addEventListener('click',()=>{if(!isPlaying){muted=false;startAudio()}else{muted=!muted;applyMusicVolume();syncAudioUI()}});
+$('musicStartButton')?.addEventListener('click',()=>{if(!isPlaying){muted=false;startAudio()}else{audio.pause();isPlaying=false;syncAudioUI()}});
+$('musicWarningButton')?.addEventListener('click',musicTroubleshoot);
 $('liveVolSlider').addEventListener('input',e=>setVolume(e.target.value));
-$('enterBtn').addEventListener('click',()=>{$('entryScreen').style.display='none';mcReady=true;startAudio();if(welcomeQueue.length)scheduleWelcome();toast('🎉 Chào mừng tới NEON PARTY LIVE!');puff(self.x,self.y-90,'spark',25)});
+$('enterBtn').addEventListener('click',()=>{$('entryScreen').style.display='none';mcReady=true;unlockSoundClips();startAudio();if(welcomeQueue.length)scheduleWelcome();toast('🎉 Chào mừng tới NEON PARTY LIVE!');puff(self.x,self.y-90,'spark',25)});
 $('enterSilent').addEventListener('click',()=>{$('entryScreen').style.display='none';soundActivated=false;toast('Bạn đã vào quán. Bấm ♫ nếu muốn bật nhạc.')});
 $('entryVol').addEventListener('input',e=>setVolume(e.target.value));$('volSlider').addEventListener('input',e=>setVolume(e.target.value));$('mobileVolume').addEventListener('input',e=>setVolume(e.target.value));$('mobileMute').addEventListener('click',()=>{if(!isPlaying){muted=false;startAudio()}else{muted=!muted;applyMusicVolume();syncAudioUI()}});$('muteBtn').addEventListener('click',()=>{if(!isPlaying){muted=false;startAudio()}else{muted=!muted;applyMusicVolume();syncAudioUI()}});
 $('settingsTop').addEventListener('click',settingsModal);$('closeModal').addEventListener('click',closeModal);$('modalBackdrop').addEventListener('click',e=>{if(e.target===$('modalBackdrop'))closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closePlayPanel()}});
@@ -1342,7 +1503,7 @@ canvas.addEventListener('pointermove',e=>{if(!pinchTouches.has(e.pointerId))retu
 const endPinch=e=>{pinchTouches.delete(e.pointerId);if(pinchTouches.size<2)pinchDist=0;};
 canvas.addEventListener('pointerup',endPinch);canvas.addEventListener('pointercancel',endPinch);
 canvas.addEventListener('pointerdown',e=>{let p=track(e);drag={startX:p.x,startY:p.y,camX:cam.x,camY:cam.y,moved:false};canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!drag)return;const p=track(e),dx=p.x-drag.startX,dy=p.y-drag.startY;if(Math.abs(dx)+Math.abs(dy)>8)drag.moved=true;if(drag.moved){if(portraitScreen)return;if(giftShot){finishGiftShot();giftShotQueue=[]}cameraMode='free';cameraAim={x:clamp(drag.camX-dx/scale,90,W-90),y:clamp(drag.camY-dy/scale,125,H-85),zoom:cam.zoom};cam.x=cameraAim.x;cam.y=cameraAim.y;updateCameraButtons()}});canvas.addEventListener('pointerup',e=>{if(!drag)return;const moved=drag.moved;drag=null;if(moved)return;let p=track(e);if(portraitScreen){const targets=portraitTapTargets.slice().reverse();const hit=targets.find(o=>Math.hypot(p.x-o.x,p.y-o.y)<o.r);if(hit?.pro)openResidentDancer(hit.pro);else if(hit?.c)openCharacter(hit.c);return;}let pt=coords(p.x,p.y);let nearest=null,dist=60;for(const c of chars){let d=Math.hypot(pt.x-c.x,pt.y-(c.y-45));if(d<dist){dist=d;nearest=c}}let pro=null,proDist=76;for(const d of residentDancers){const dd=Math.hypot(pt.x-d.x,pt.y-(d.y-65));if(dd<proDist){proDist=dd;pro=d}}if(pro)openResidentDancer(pro);else if(nearest)openCharacter(nearest)});canvas.addEventListener('wheel',e=>{e.preventDefault();zoomCamera(e.deltaY<0?1.09:1/1.09)},{passive:false});
-audio.addEventListener('timeupdate',()=>$('timeDisplay').textContent=musicTime());audio.addEventListener('ended',()=>{isPlaying=false;syncAudioUI()});audio.addEventListener('error',()=>{toast('Không tải được bản nhạc. Kiểm tra file âm thanh đi kèm.');isPlaying=false;syncAudioUI()});
+audio.addEventListener('timeupdate',()=>$('timeDisplay').textContent=musicTime());audio.addEventListener('ended',()=>{isPlaying=false;syncAudioUI()});audio.addEventListener('error',()=>{isPlaying=false;syncAudioUI();if(!musicPlayPromise){void explainMusicFailure(new DOMException('Media source error','NotSupportedError'))}});
 window.addEventListener('resize',resize);if(window.ResizeObserver)new ResizeObserver(resize).observe(canvas);resize();
 if(overlay){mcReady=true;setCameraMode(new URLSearchParams(location.search).get('camera')==='auto'?'auto':'stage');document.body.classList.add('overlay-mode');$('entryScreen').style.display='none';document.title='NEON PARTY · OBS OVERLAY';if(new URLSearchParams(location.search).get('sound')!=='off'){setTimeout(()=>startAudio(),750);window.addEventListener('pointerdown',()=>{if(!isPlaying){muted=false;startAudio()}},{once:true})}setTimeout(()=>toast('Overlay: nếu chưa nghe tiếng, tương tác một lần với nguồn trình duyệt trong OBS.'),1800)}
 }

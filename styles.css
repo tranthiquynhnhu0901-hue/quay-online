@@ -178,3 +178,17 @@
 .cheers-countdown{position:absolute;z-index:18;left:50%;top:45%;transform:translate(-50%,-50%);max-width:90%;padding:12px 22px;border:2px solid #ffe5a4;border-radius:24px;background:linear-gradient(125deg,#371447e9,#14244ff2);color:#fff4b9;text-shadow:0 3px 12px #000b,0 0 21px #ff95eb;box-shadow:0 5px 26px #120925a8,0 0 36px #fbb8e56e;text-align:center;font-size:clamp(28px,8vw,68px);font-weight:1000;line-height:1.12;pointer-events:none;font-family:"Be Vietnam Pro",system-ui,sans-serif}
 @media(max-width:700px){.cheers-countdown{top:47%;font-size:clamp(31px,10vw,53px);padding:9px 16px;border-radius:18px}}
 @media(prefers-reduced-motion:reduce){.cheers-countdown{animation:none!important}}
+
+/* v2.6.1: accessible music playback, actionable diagnostics without changing stage/game layout */
+.music-start-button{font:inherit;text-align:left;cursor:pointer;color:inherit;transition:filter .15s,transform .15s}
+.music-start-button:hover{filter:brightness(1.3)}
+.music-start-button:active{transform:scale(.985)}
+.music-start-button:focus-visible{outline:2px solid #88e6ff;outline-offset:3px}
+.music-warning{position:fixed;z-index:140;bottom:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:12px;width:min(94vw,610px);padding:12px 14px;background:#231437;color:#fff;border:1px solid #fc87cc;border-radius:13px;box-shadow:0 12px 50px #0009;font:600 12px/1.4 system-ui;}
+.music-warning[hidden]{display:none!important}
+.music-warning span{flex:1}
+.music-warning button{flex-shrink:0;padding:9px 12px;color:#160e23;background:#ffe4fc;border:0;border-radius:8px;font-weight:800;cursor:pointer}
+@media(max-width:650px){.music-warning{bottom:12px;font-size:11px;gap:7px}.music-warning button{padding:9px 7px}}
+
+/* v2.6.2 sound diagnostics */
+.audio-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0 14px}.audio-check-grid button{min-height:41px;text-align:left;white-space:normal;font-size:12px}.audio-results{margin-top:12px;padding:12px;border-radius:12px;border:1px solid #a77add55;background:#170e2b;font-size:12px;line-height:1.6;max-height:260px;overflow:auto;overflow-wrap:anywhere}.audio-ok{color:#a4f2c0}.audio-missing{color:#ffc49f}@media(max-width:390px){.audio-check-grid{gap:6px}.audio-check-grid button{padding:9px 7px;font-size:11px}}

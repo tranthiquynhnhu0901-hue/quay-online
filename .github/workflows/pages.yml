@@ -35,7 +35,7 @@ jobs:
         run: |
           mkdir -p public/assets
           cp index.html app.js styles.css .nojekyll public/
-          cp assets/neon_live_mix.m4a assets/party_123_zo.mp3 assets/beer_open.mp3 assets/beer_pour.mp3 public/assets/
+          cp assets/neon_live_mix.m4a assets/party_123_zo.mp3 assets/beer_open.mp3 assets/beer_pour.mp3 assets/fx_*.mp3 public/assets/
           python3 - <<'PYCONFIG'
           import os,json,pathlib
           backend=os.getenv('NEON_BACKEND_URL','').strip().rstrip('/')

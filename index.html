@@ -20,7 +20,7 @@
 
     <main class="main-grid">
       <section class="main-content">
-        <div class="page-title"><div><div class="eyebrow">✦ KHÔNG GIAN TIỆC TÙNG TRỰC TUYẾN</div><h1>Đêm nay, <em>cháy hết mình!</em> <span>✷</span></h1><p>Vào quán, chọn món, thả tim và cùng hội bạn khuấy động sàn nhảy.</p></div><div class="live-clock"><span>♪</span><div><b>DJ TRIỆU MUZIK MIX</b><small id="musicText">48:33 · Nhấn “Vào quán” để phát nhạc</small></div></div></div>
+        <div class="page-title"><div><div class="eyebrow">✦ KHÔNG GIAN TIỆC TÙNG TRỰC TUYẾN</div><h1>Đêm nay, <em>cháy hết mình!</em> <span>✷</span></h1><p>Vào quán, chọn món, thả tim và cùng hội bạn khuấy động sàn nhảy.</p></div><button type="button" class="live-clock music-start-button" id="musicStartButton" aria-label="Phát hoặc dừng nhạc DJ"><span>♫</span><div><b>DJ TRIỆU MUZIK MIX</b><small id="musicText">▶ Chạm để bật nhạc DJ</small></div></button></div>
 
         <section class="world-card" aria-label="Thế giới quán bar 2D">
           <div class="world-head"><div class="world-head-left"><span class="red-live"><i></i> LIVE WORLD</span><b>NEON CITY CLUB</b><span class="head-divider"></span><span class="soft" id="roomCount">37 người trong quán</span></div><div class="world-head-actions"><button class="micro-btn compass-btn" id="miniMapToggle" aria-expanded="false" title="Bản đồ tương tác">🧭</button><button class="micro-btn" id="zoomOut" title="Thu nhỏ">−</button><button class="micro-btn" id="zoomIn" title="Phóng to">+</button><button class="micro-btn" id="btnFull" title="Toàn màn hình">⛶</button></div></div>
@@ -46,7 +46,7 @@
                 <button id="liveInteractionsAction" type="button">⚡ <span>Tim · Chia sẻ · Ăn uống</span></button>
                 <button id="liveGiftAction" type="button">🎁 <span>Thử quà / nhảy solo</span></button>
                 <button id="liveAudioAction" type="button">♫ <span id="liveAudioText">Bật / tắt nhạc</span></button>
-                <button id="livePartySoundAction" type="button">🔊 <span>Tiếng cả phòng · Pháo hoa · Cụng ly</span></button>
+                <button id="livePartySoundAction" type="button">🔊 <span>Tất cả âm thanh · Kiểm tra từng tiếng</span></button>
                 <button id="liveWelcomeAction" type="button">🎙 <span>Giọng MC · Chào theo tên</span></button>
                 <label class="live-volume-label" for="liveVolSlider">Âm lượng <input id="liveVolSlider" type="range" min="0" max="100" value="58" aria-label="Điều chỉnh âm lượng"></label>
               </div>
@@ -84,7 +84,7 @@
     <footer class="site-footer"><span>✦ NEON PARTY LIVE · MADE FOR GOOD VIBES</span><span>Trải nghiệm mô phỏng · Kết nối TikTok cần nguồn dữ liệu hợp lệ</span></footer>
   </div>
 
-  <div class="entry-screen" id="entryScreen" role="dialog" aria-modal="true" aria-label="Vào quán Neon Party"><div class="entry-flares"></div><div class="entry-panel"><div class="entry-emblem">✦</div><div class="entry-label">WELCOME TO THE NIGHT</div><h2>NEON <span>PARTY</span></h2><p>Đêm nhạc đã sẵn sàng. Nhấn vào quán để bắt đầu hành trình, bật bản DJ Mix bạn đã chọn và hòa mình vào thế giới chibi 2D.</p><div class="entry-feature"><span>🎧 DJ Mix 48 phút</span><span>💃 2 vũ công EDM</span><span>🧭 Thế giới mở rộng</span><span>🍹 Bar tương tác</span></div><label class="entry-volume">Âm lượng khi bắt đầu <b id="entryVolText">58%</b><input type="range" min="0" max="100" value="58" id="entryVol"></label><button id="enterBtn" class="entry-btn">✦ VÀO QUÁN & BẬT NHẠC <span>→</span></button><button id="enterSilent" class="enter-silent">Vào quán không bật nhạc</button><small class="entry-disclaimer">Bản nhạc do bạn cung cấp · Chỉ phát sau khi bạn nhấn vào quán</small></div></div>
+  <div class="entry-screen" id="entryScreen" role="dialog" aria-modal="true" aria-label="Vào quán Neon Party"><div class="entry-flares"></div><div class="entry-panel"><div class="entry-emblem">✦</div><div class="entry-label">WELCOME TO THE NIGHT</div><h2>NEON <span>PARTY</span></h2><p>Đêm nhạc đã sẵn sàng. Nhấn vào quán để bắt đầu hành trình, bật bản DJ Mix bạn đã chọn và hòa mình vào thế giới chibi 2D.</p><div class="entry-feature"><span>🎧 DJ Mix 48 phút</span><span>💃 2 vũ công EDM</span><span>🧭 Thế giới mở rộng</span><span>🍹 Bar tương tác</span></div><label class="entry-volume">Âm lượng khi bắt đầu <b id="entryVolText">58%</b><input type="range" min="0" max="100" value="58" id="entryVol"></label><button id="enterBtn" class="entry-btn">✦ VÀO QUÁN & BẬT ÂM THANH <span>→</span></button><button id="enterSilent" class="enter-silent">Vào quán không bật nhạc</button><small class="entry-disclaimer">Bản nhạc do bạn cung cấp · Chỉ phát sau khi bạn nhấn vào quán</small></div></div>
 
   <div class="play-panel-backdrop" id="playPanelBackdrop" hidden><section class="play-panel" role="dialog" aria-modal="true" aria-labelledby="playPanelTitle"><div class="play-panel-head"><div><small>CHỌN HOẠT ĐỘNG · DÙNG NGAY</small><h2 id="playPanelTitle">⚡ Tương tác với quán</h2></div><button id="closePlayPanel" aria-label="Đóng bảng hoạt động">✕</button></div><div class="play-panel-info">Đồ ăn và bia mô phỏng chỉ là vật phẩm ảo, không liên quan mua rượu bia thật. Dùng <b>!khui</b>, <b>!ban</b>, <b>!cungly</b> khi có kết nối LIVE thật; các nút ở đây chạy <b>DEMO</b>.</div><div class="play-panel-grid">
 <button data-play="toastparty">🥂 <b>1 · 2 · 3 · ZÔÔÔ!</b><small>Cả phòng cụng ly, pháo hoa, hô vang</small></button>
@@ -107,12 +107,13 @@
 <button data-play="live">📡 <b>TikTok LIVE</b><small>Trạng thái kết nối</small></button>
 <button data-play="camera">🎥 <b>Góc quay</b><small>24 góc máy</small></button>
 </div><p class="play-panel-footer">💡 Khi LIVE kết nối thực, mọi quà tặng hợp lệ sẽ được spotlight tự động, không cần bấm trên website.</p></section></div>
+  <div class="music-warning" id="musicWarning" hidden><span id="musicWarningText">Nhạc chưa phát được</span><button type="button" id="musicWarningButton">Xem lỗi / Sửa</button></div>
   <div class="toast-area" id="toastArea" aria-live="polite"></div>
   <div class="modal-backdrop" id="modalBackdrop" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><header><div><span class="eyebrow" id="modalEyebrow">NEON PARTY EXPERIENCE</span><h2 id="modalTitle">Khám phá</h2></div><button class="close-modal" id="closeModal" aria-label="Đóng">×</button></header><div id="modalContent" class="modal-content"></div></section></div>
   <audio id="beerOpenAudio" preload="auto" playsinline src="assets/beer_open.mp3"></audio>
   <audio id="beerPourAudio" preload="auto" playsinline src="assets/beer_pour.mp3"></audio>
   <audio id="partyChant" preload="auto" playsinline src="assets/party_123_zo.mp3"></audio>
-  <audio id="bgMusic" preload="none" loop playsinline src="assets/neon_live_mix.m4a"></audio>
+  <audio id="bgMusic" preload="metadata" loop playsinline src="assets/neon_live_mix.m4a"></audio>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
