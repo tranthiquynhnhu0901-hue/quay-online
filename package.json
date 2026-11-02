@@ -1,0 +1,18 @@
+{
+  "name": "neon-party-live",
+  "version": "2.6.0",
+  "description": "NEON PARTY LIVE full visual v2.5, optimized 9:16 GitHub Pages + local PC Live, compact audio",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "check": "node --check app.js && node --check server/server.js && node --test server/normalize.test.js && node tools/verify-upload.js"
+  },
+  "optionalDependencies": {
+    "tiktok-live-connector": "^2.5.0"
+  }
+}
